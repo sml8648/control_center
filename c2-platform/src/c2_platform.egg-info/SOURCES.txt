@@ -1,0 +1,13 @@
+README.md
+pyproject.toml
+src/main.py
+src/c2/__init__.py
+src/c2/api.py
+src/c2/config.py
+src/c2/dispatcher.py
+src/c2/models.py
+src/c2_platform.egg-info/PKG-INFO
+src/c2_platform.egg-info/SOURCES.txt
+src/c2_platform.egg-info/dependency_links.txt
+src/c2_platform.egg-info/requires.txt
+src/c2_platform.egg-info/top_level.txt

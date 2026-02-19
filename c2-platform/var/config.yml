@@ -1,0 +1,19 @@
+# C2 Platform - Subsystems
+# Each subsystem can have an endpoint to receive HTTP POST with { "action": "...", "params": { ... } }
+
+subsystems:
+  - id: nav
+    name: Navigation
+    description: Course and waypoint commands
+    enabled: true
+    # endpoint: http://localhost:9001/command   # optional
+
+  - id: propulsion
+    name: Propulsion
+    description: Throttle and engine commands
+    enabled: true
+
+  - id: sensors
+    name: Sensors
+    description: Sensor enable/configure
+    enabled: true

@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>C2 Platform - Command & Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --accent-dim: #388bfd66;
+      --success: #3fb950;
+      --danger: #f85149;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+    }
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 0;
+    }
+    .sidebar h1 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0 1.25rem 1rem;
+      color: var(--accent);
+      letter-spacing: 0.02em;
+    }
+    .subsystems {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .subsystems li {
+      padding: 0.6rem 1.25rem;
+      border-left: 3px solid transparent;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+    .subsystems li.enabled { color: var(--text); }
+    .subsystems li.active { border-left-color: var(--accent); background: var(--accent-dim); color: var(--text); }
+    .main {
+      padding: 2rem;
+      max-width: 1200px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 0 0 1.25rem;
+      color: var(--text);
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .form-row {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .field {
+      flex: 1;
+      min-width: 140px;
+    }
+    .field label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    button {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 500;
+      padding: 0.55rem 1.25rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+    }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .history table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .history th, .history td {
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .history th { color: var(--text-muted); font-weight: 500; }
+    .history tr:hover { background: rgba(255,255,255,0.03); }
+    .status { font-family: 'JetBrains Mono', monospace; }
+    .status.sent { color: var(--success); }
+    .status.failed { color: var(--danger); }
+    .status.pending { color: var(--text-muted); }
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      padding: 0.75rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: 0.9rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      z-index: 1000;
+    }
+    .toast.success { background: var(--success); color: var(--bg); }
+    .toast.error { background: var(--danger); color: #fff; }
+    .api-docs {
+      margin-top: 2rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .api-docs code { background: var(--bg); padding: 0.2rem 0.4rem; border-radius: 4px; }
+    .map-section {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 1rem;
+      align-items: start;
+    }
+    @media (max-width: 900px) { .map-section { grid-template-columns: 1fr; } }
+    #map {
+      width: 100%;
+      min-width: 200px;
+      height: 380px;
+      min-height: 380px;
+      border-radius: var(--radius);
+      background: var(--bg);
+      display: block;
+    }
+    #map.map-loading { display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+    .map-form .field { margin-bottom: 0.75rem; }
+    .map-form .field label { font-size: 0.8rem; color: var(--text-muted); }
+    .btn-secondary { background: var(--border); color: var(--text); }
+    .btn-secondary:hover { filter: brightness(1.2); }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h1>C2 PLATFORM</h1>
+      <ul class="subsystems">
+        {% for s in subsystems %}
+        <li class="{{ 'enabled' if s.enabled else '' }}" data-id="{{ s.id }}">
+          <strong>{{ s.name }}</strong>
+          {% if s.description %}<br><span style="font-size:0.8rem;color:var(--text-muted)">{{ s.description }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </aside>
+    <main class="main">
+      <h2>명령 전송</h2>
+      <div class="card">
+        <div class="form-row">
+          <div class="field">
+            <label>대상 (Subsystem)</label>
+            <select id="target">
+              <option value="broadcast">Broadcast (전체)</option>
+              {% for s in subsystems %}
+              {% if s.enabled %}
+              <option value="{{ s.id }}">{{ s.name }}</option>
+              {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label>액션 (Action)</label>
+            <input type="text" id="action" placeholder="예: set_course" value="set_course" />
+          </div>
+        </div>
+        <div class="field" style="margin-top:1rem">
+          <label>파라미터 (JSON)</label>
+          <textarea id="params" placeholder='{"heading": 90, "speed_knots": 10}'>{}</textarea>
+        </div>
+        <div style="margin-top:1rem">
+          <button class="btn-primary" id="sendBtn">명령 전송</button>
+        </div>
+      </div>
+
+      <h2>지도</h2>
+      <div class="card map-section">
+        <div>
+          <div id="map" class="map-loading" aria-label="지도">지도 불러오는 중…</div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem">좌표를 전송하면 마커가 표시됩니다. 명령 파라미터에 <code>lat</code>, <code>lon</code>을 넣어도 지도에 찍힙니다.</p>
+        </div>
+        <div class="map-form">
+          <div class="field">
+            <label>위도 (lat)</label>
+            <input type="text" id="mapLat" placeholder="37.5665" />
+          </div>
+          <div class="field">
+            <label>경도 (lon)</label>
+            <input type="text" id="mapLon" placeholder="126.9780" />
+          </div>
+          <div class="field">
+            <label>라벨 (선택)</label>
+            <input type="text" id="mapLabel" placeholder="Waypoint 1" />
+          </div>
+          <button class="btn-primary" id="mapAddBtn" style="margin-right:0.5rem">좌표 추가</button>
+          <button class="btn-secondary" id="mapClearBtn">지도 비우기</button>
+        </div>
+      </div>
+
+      <h2>최근 명령 이력</h2>
+      <div class="card history">
+        <table>
+          <thead>
+            <tr>
+              <th>시간</th>
+              <th>대상</th>
+              <th>액션</th>
+              <th>상태</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            {% for c in history %}
+            <tr>
+              <td>{{ c.created_at.strftime('%H:%M:%S') if c.created_at else '-' }}</td>
+              <td>{{ c.target }}</td>
+              <td><code>{{ c.action }}</code></td>
+              <td class="status {{ c.status }}">{{ c.status }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="api-docs">
+        <strong>API 사용 예시</strong>
+        <pre style="margin:0.5rem 0; padding:1rem; background:var(--bg); border-radius:var(--radius); overflow:auto"><code># 서브시스템 목록
+GET /api/subsystems
+
+# 명령 전송
+POST /api/commands
+Content-Type: application/json
+{"target": "nav", "action": "set_course", "params": {"heading": 90}}
+
+# 최근 명령 조회
+GET /api/commands
+
+# 지도에 좌표 추가
+POST /api/map/points/json
+{"lat": 37.5665, "lon": 126.9780, "label": "서울"}
+GET /api/map/points
+DELETE /api/map/points</code></pre>
+      </div>
+    </main>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    const sendBtn = document.getElementById('sendBtn');
+    const target = document.getElementById('target');
+    const action = document.getElementById('action');
+    const params = document.getElementById('params');
+    const historyBody = document.getElementById('historyBody');
+
+    function showToast(msg, type = 'success') {
+      const el = document.createElement('div');
+      el.className = 'toast ' + type;
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+
+    sendBtn.addEventListener('click', async () => {
+      let payload = {};
+      try {
+        payload = params.value.trim() ? JSON.parse(params.value) : {};
+      } catch (e) {
+        showToast('params는 유효한 JSON이어야 합니다.', 'error');
+        return;
+      }
+      sendBtn.disabled = true;
+      try {
+        const res = await fetch('/api/commands', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target: target.value, action: action.value.trim() || 'command', params: payload }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || res.statusText);
+        showToast('명령 전송됨: ' + data.command_id);
+        const time = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+        const row = historyBody.insertRow(0);
+        row.innerHTML = '<td>' + time + '</td><td>' + data.target + '</td><td><code>' + data.action + '</code></td><td class="status ' + data.status + '">' + data.status + '</td>';
+      } catch (e) {
+        showToast(e.message || '전송 실패', 'error');
+      } finally {
+        sendBtn.disabled = false;
+      }
+    });
+
+    document.querySelectorAll('.subsystems li[data-id]').forEach(li => {
+      li.addEventListener('click', () => { target.value = li.dataset.id; li.parentElement.querySelectorAll('li').forEach(l => l.classList.remove('active')); li.classList.add('active'); });
+    });
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    var map = null;
+    var markers = [];
+    function clearMarkers() {
+      markers.forEach(function(m) { m.remove(); });
+      markers.length = 0;
+    }
+    function refreshMapPoints() {
+      if (!map) return;
+      fetch('/api/map/points')
+        .then(function(r) { return r.json(); })
+        .then(function(points) {
+          clearMarkers();
+          points.forEach(function(p) {
+            var m = L.marker([p.lat, p.lon])
+              .addTo(map)
+              .bindPopup(p.label ? '<strong>' + escapeHtml(p.label) + '</strong><br>' + p.lat.toFixed(5) + ', ' + p.lon.toFixed(5) : p.lat.toFixed(5) + ', ' + p.lon.toFixed(5));
+            markers.push(m);
+          });
+        })
+        .catch(function() {});
+    }
+    function initMap() {
+      var el = document.getElementById('map');
+      if (!el) return;
+      if (typeof L === 'undefined') {
+        el.classList.add('map-loading');
+        el.innerHTML = '지도 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하거나, 방화벽에서 unpkg.com·openstreetmap.org 허용 후 새로고침하세요.';
+        return;
+      }
+      try {
+        el.classList.remove('map-loading');
+        el.innerHTML = '';
+        map = L.map('map', { preferCanvas: true }).setView([37.5665, 126.9780], 10);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        }).addTo(map);
+        setTimeout(function() { if (map) map.invalidateSize(); }, 100);
+        window.refreshMapPoints = refreshMapPoints;
+        refreshMapPoints();
+        setInterval(refreshMapPoints, 5000);
+      } catch (err) {
+        el.classList.add('map-loading');
+        el.innerHTML = '지도 초기화 실패: ' + String(err.message);
+      }
+    }
+
+    document.getElementById('mapAddBtn').addEventListener('click', async () => {
+      const lat = parseFloat(document.getElementById('mapLat').value);
+      const lon = parseFloat(document.getElementById('mapLon').value);
+      const label = document.getElementById('mapLabel').value.trim();
+      if (isNaN(lat) || isNaN(lon)) {
+        showToast('위도/경도를 숫자로 입력해 주세요.', 'error');
+        return;
+      }
+      try {
+        const res = await fetch('/api/map/points/json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat, lon, label }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        showToast('지도에 좌표가 추가되었습니다.');
+        if (window.refreshMapPoints) window.refreshMapPoints();
+        if (map) map.setView([lat, lon], map.getZoom());
+      } catch (e) {
+        showToast(e.message || '추가 실패', 'error');
+      }
+    });
+
+    document.getElementById('mapClearBtn').addEventListener('click', async () => {
+      try {
+        await fetch('/api/map/points', { method: 'DELETE' });
+        if (window.refreshMapPoints) window.refreshMapPoints();
+        showToast('지도 마커를 비웠습니다.');
+      } catch (e) {
+        showToast('비우기 실패', 'error');
+      }
+    });
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() { setTimeout(initMap, 50); });
+    } else {
+      setTimeout(initMap, 50);
+    }
+  </script>
+</body>
+</html>
