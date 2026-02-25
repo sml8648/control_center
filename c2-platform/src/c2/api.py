@@ -6,12 +6,13 @@ from typing import Optional
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
 
 from .config import load_subsystems, SubsystemConfig
 from .dispatcher import Dispatcher
+from .enc_tiles import fetch_enc_tile
 from .models import (
     AddMapPointRequest,
     CommandRecord,
@@ -211,5 +212,17 @@ def create_app(config_path: Optional[Path] = None) -> FastAPI:
         """Remove all points from the map."""
         _map_points.clear()
         return {"message": "cleared"}
+
+    # ---------- ENC tile proxy (NOAA WMS → tile) ----------
+
+    @app.get("/api/map/enc/tiles/{z:int}/{x:int}/{y:int}.png", response_class=Response)
+    async def enc_tile(z: int, x: int, y: int):
+        """Proxy ENC (NOAA) tile for Leaflet. US coastal only."""
+        if z < 1 or z > 18:
+            return Response(status_code=400)
+        content = await fetch_enc_tile(z, x, y)
+        if content is None:
+            return Response(status_code=204)
+        return Response(content=content, media_type="image/png")
 
     return app
