@@ -145,3 +145,24 @@ class ShipRoute(BaseModel):
     keep_in_areas: list[ZonePolygon]
     keep_out_areas: list[ZonePolygon]
     loaded_at: datetime
+
+
+class HbtConfig(BaseModel):
+    """IEC 61162-1 HBT transmission configuration."""
+
+    interval_sec: float = 5.0   # HBT repeat interval in seconds
+    talker_id: str = "II"       # Talker ID (II = Integrated Instrumentation)
+    udp_port: int = 10110       # NMEA-over-UDP standard port
+    enabled: bool = True
+
+
+class HbtRecord(BaseModel):
+    """Record of a single HBT sentence transmission attempt."""
+
+    ship_id: str
+    ship_name: str
+    sentence: str               # Full NMEA sentence (without CRLF)
+    target_host: Optional[str]  # Resolved hostname/IP, None if no platform_url
+    sent_at: datetime
+    status: str                 # "ok" | "error" | "no_target"
+    error: Optional[str] = None

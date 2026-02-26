@@ -1,9 +1,12 @@
 """FastAPI app: web UI and REST API for subsystem commands."""
+import asyncio
 import logging
+import socket
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
@@ -19,6 +22,8 @@ from .models import (
     AddShipRequest,
     CommandRecord,
     CommandStatus,
+    HbtConfig,
+    HbtRecord,
     MapPoint,
     RouteWaypoint,
     SendCommandRequest,
@@ -49,6 +54,93 @@ _ships: list[Ship] = [
 ]
 _ship_waypoints: dict[str, ShipWaypoint] = {}
 _ship_routes: dict[str, ShipRoute] = {}
+
+# ---------- IEC 61162-1 HBT ----------
+# Runtime config stored as a mutable dict so it can be updated in-place
+_hbt_cfg: dict = {
+    "interval_sec": 5.0,
+    "talker_id": "II",
+    "udp_port": 10110,
+    "enabled": True,
+}
+_hbt_records: list[HbtRecord] = []
+_HBT_RECORDS_LIMIT = 500
+_hbt_task: Optional[asyncio.Task] = None
+
+
+def _nmea_checksum(body: str) -> str:
+    """XOR of all bytes between '$' and '*' (exclusive)."""
+    xor = 0
+    for ch in body:
+        xor ^= ord(ch)
+    return format(xor, "02X")
+
+
+def _build_hbt(interval_sec: float, seq: int, talker_id: str = "II") -> str:
+    """Build an IEC 61162-1 HBT sentence (without CRLF).
+
+    Format: $<TI>HBT,<interval>,A,<seq>*<checksum>
+      interval – configured repeat interval in seconds
+      A        – equipment status (A = Normal)
+      seq      – sequential sentence identifier 0-9
+    """
+    body = f"{talker_id}HBT,{interval_sec:.1f},A,{seq}"
+    cs = _nmea_checksum(body)
+    return f"${body}*{cs}"
+
+
+async def _hbt_loop() -> None:
+    """Background coroutine: transmit HBT to each ship's platform via UDP."""
+    seq = 0
+    while True:
+        try:
+            interval = float(_hbt_cfg["interval_sec"])
+            await asyncio.sleep(interval)
+
+            if not _hbt_cfg["enabled"]:
+                continue
+
+            sentence = _build_hbt(interval, seq, str(_hbt_cfg["talker_id"]))
+            udp_port = int(_hbt_cfg["udp_port"])
+
+            for ship in list(_ships):
+                target_host: Optional[str] = None
+                status = "no_target"
+                error: Optional[str] = None
+
+                if ship.platform_url:
+                    try:
+                        parsed = urlparse(ship.platform_url)
+                        target_host = parsed.hostname or ship.platform_url
+                        payload = (sentence + "\r\n").encode("ascii")
+                        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                            sock.settimeout(1.0)
+                            sock.sendto(payload, (target_host, udp_port))
+                        status = "ok"
+                    except Exception as exc:
+                        status = "error"
+                        error = str(exc)
+
+                record = HbtRecord(
+                    ship_id=ship.id,
+                    ship_name=ship.name,
+                    sentence=sentence,
+                    target_host=target_host,
+                    sent_at=datetime.now(timezone.utc),
+                    status=status,
+                    error=error,
+                )
+                _hbt_records.append(record)
+
+            seq = (seq + 1) % 10
+
+            while len(_hbt_records) > _HBT_RECORDS_LIMIT:
+                _hbt_records.pop(0)
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("HBT loop error")
 
 
 def parse_rtz(xml_str: str, ship_id: str) -> ShipRoute:
@@ -163,6 +255,23 @@ def create_app(config_path: Optional[Path] = None) -> FastAPI:
     static_dir = Path(__file__).parent / "static"
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+    @app.on_event("startup")
+    async def _start_hbt():
+        global _hbt_task
+        _hbt_task = asyncio.create_task(_hbt_loop())
+        logger.info("HBT background task started (interval=%.1fs)", _hbt_cfg["interval_sec"])
+
+    @app.on_event("shutdown")
+    async def _stop_hbt():
+        global _hbt_task
+        if _hbt_task:
+            _hbt_task.cancel()
+            try:
+                await _hbt_task
+            except asyncio.CancelledError:
+                pass
+            logger.info("HBT background task stopped")
 
     templates_dir = Path(__file__).parent / "templates"
     env = Environment(loader=FileSystemLoader(str(templates_dir)))
@@ -411,6 +520,42 @@ def create_app(config_path: Optional[Path] = None) -> FastAPI:
         """Remove the RTZ route for a ship."""
         _ship_routes.pop(ship_id, None)
         return {"message": "cleared"}
+
+    # ---------- IEC 61162-1 HBT API ----------
+
+    @app.get("/api/hbt/config", response_model=HbtConfig)
+    def get_hbt_config():
+        """Return current HBT configuration."""
+        return HbtConfig(**_hbt_cfg)
+
+    @app.post("/api/hbt/config", response_model=HbtConfig)
+    def update_hbt_config(body: HbtConfig):
+        """Update HBT configuration (interval, talker_id, udp_port, enabled)."""
+        _hbt_cfg.update(body.model_dump())
+        return HbtConfig(**_hbt_cfg)
+
+    @app.post("/api/hbt/toggle")
+    def toggle_hbt():
+        """Toggle HBT transmission on/off."""
+        _hbt_cfg["enabled"] = not _hbt_cfg["enabled"]
+        return {"enabled": _hbt_cfg["enabled"]}
+
+    @app.get("/api/hbt/status")
+    def hbt_status():
+        """Return the latest HBT record per ship plus the current config."""
+        # Collapse to most recent record per ship
+        latest: dict[str, HbtRecord] = {}
+        for rec in _hbt_records:
+            latest[rec.ship_id] = rec
+        return {
+            "config": HbtConfig(**_hbt_cfg),
+            "records": list(latest.values()),
+        }
+
+    @app.get("/api/hbt/log")
+    def hbt_log(limit: int = 100):
+        """Return the last N HBT transmission records (newest first)."""
+        return _hbt_records[-limit:][::-1]
 
     # ---------- ENC tile proxy (NOAA WMS → tile) ----------
 
