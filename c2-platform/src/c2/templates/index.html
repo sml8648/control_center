@@ -370,6 +370,90 @@
       margin-top: 0.25rem;
     }
 
+    /* ── 선박 현황 테이블 ── */
+    .ship-status-wrap { overflow-x: auto; }
+    .ship-status-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    .ship-status-table th {
+      text-align: left;
+      padding: 0.45rem 0.75rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .ship-status-table td {
+      padding: 0.55rem 0.75rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    .ship-status-table tr:last-child td { border-bottom: none; }
+    .ship-status-table tr:hover td { background: rgba(255,255,255,0.025); }
+    .ss-name {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .ss-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 5px currentColor;
+    }
+    .ss-badge {
+      display: inline-block;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .ss-badge.moving { background: rgba(63,185,80,0.15); color: #3fb950; }
+    .ss-badge.stopped { background: rgba(139,148,158,0.12); color: #8b949e; }
+    .ss-mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .ss-mono.bright { color: var(--text); }
+    .ss-url-link {
+      color: #58a6ff;
+      text-decoration: none;
+      font-size: 0.75rem;
+      max-width: 160px;
+      display: inline-block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+    .ss-url-link:hover { text-decoration: underline; }
+    .ss-fly-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      padding: 0.2rem 0.55rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .ss-fly-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+    .ss-empty {
+      text-align: center;
+      padding: 1.5rem;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+    }
+
     /* ── WPT 현황 패널 ── */
     .wpt-grid {
       display: grid;
@@ -555,6 +639,31 @@
       <div class="card">
         <div class="wpt-grid" id="wptPanel">
           <div class="wpt-block" style="color:var(--text-muted);font-size:0.8rem">지도 초기화 중…</div>
+        </div>
+      </div>
+
+      <h2>선박 현황</h2>
+      <div class="card" style="padding:0">
+        <div class="ship-status-wrap">
+          <table class="ship-status-table" id="shipStatusTable">
+            <thead>
+              <tr>
+                <th>선박</th>
+                <th>위도</th>
+                <th>경도</th>
+                <th>방위</th>
+                <th>상태</th>
+                <th>현재 WP</th>
+                <th>다음 WP</th>
+                <th>루트</th>
+                <th>플랫폼</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="shipStatusBody">
+              <tr><td colspan="10" class="ss-empty">초기화 중…</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -1416,6 +1525,95 @@
         });
       } catch (e) { /* silent */ }
     }
+
+    /* ========== 선박 현황 테이블 ========== */
+    function renderShipStatus() {
+      var tbody = document.getElementById('shipStatusBody');
+      if (!tbody) return;
+
+      var ids = Object.keys(shipMarkers);
+      if (ids.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="ss-empty">등록된 선박이 없습니다.</td></tr>';
+        return;
+      }
+
+      var rows = ids.map(function(shipId) {
+        var m = shipMarkers[shipId];
+        if (!m || !m._shipData) return '';
+        var ship     = m._shipData;
+        var color    = SHIP_COLORS[shipId] || '#fff';
+        var isMoving = !!shipAnimations[shipId];
+
+        var queue  = shipWpQueues[shipId] || [];
+        var curIdx = (shipWpCurIdx[shipId] != null) ? shipWpCurIdx[shipId] : -1;
+        var curWp  = (curIdx >= 0 && curIdx < queue.length)     ? queue[curIdx]     : null;
+        var nextWp = (curIdx >= 0 && curIdx + 1 < queue.length) ? queue[curIdx + 1] : null;
+
+        // 현재 WP 거리
+        var curWpStr = '—';
+        if (curWp) {
+          var nm = haversineNM(ship.lat, ship.lon, curWp.lat, curWp.lon);
+          curWpStr = 'WP ' + (curIdx + 1) + '/' + queue.length + '&nbsp;<span style="color:var(--text-muted)">' + nm.toFixed(1) + ' NM</span>';
+        }
+
+        // 다음 WP
+        var nextWpStr = '—';
+        if (nextWp) {
+          var nm2 = haversineNM(ship.lat, ship.lon, nextWp.lat, nextWp.lon);
+          nextWpStr = 'WP ' + (curIdx + 2) + '/' + queue.length + '&nbsp;<span style="color:var(--text-muted)">' + nm2.toFixed(1) + ' NM</span>';
+        }
+
+        // 루트
+        var rd = shipRouteData[shipId];
+        var routeStr = rd
+          ? '<span style="color:#3fb950;font-size:0.72rem">' + escapeHtml(rd.name) + '</span>' +
+            '<br><span style="color:var(--text-muted);font-size:0.7rem">WP ' + rd.wpCount +
+            (rd.kiCount ? ' · KI ' + rd.kiCount : '') +
+            (rd.koCount ? ' · KO ' + rd.koCount : '') + '</span>'
+          : '<span style="color:var(--text-muted)">—</span>';
+
+        // 플랫폼 URL
+        var urlStr = ship.platform_url
+          ? '<a class="ss-url-link" href="' + escapeHtml(ship.platform_url) + '" target="_blank" rel="noopener">' + escapeHtml(ship.platform_url) + '</a>'
+          : '<span style="color:var(--text-muted)">—</span>';
+
+        var isSelected = (selectedShipId === shipId);
+        var rowStyle = isSelected ? 'background:rgba(88,166,255,0.06);' : '';
+
+        return '<tr style="' + rowStyle + '">' +
+          '<td><div class="ss-name"><span class="ss-dot" style="background:' + color + ';color:' + color + '"></span>' + escapeHtml(ship.name) + '</div></td>' +
+          '<td><span class="ss-mono bright">' + toDMS(ship.lat, true)  + '</span></td>' +
+          '<td><span class="ss-mono bright">' + toDMS(ship.lon, false) + '</span></td>' +
+          '<td><span class="ss-mono bright">' + ship.heading.toFixed(0) + '°</span></td>' +
+          '<td><span class="ss-badge ' + (isMoving ? 'moving' : 'stopped') + '">' + (isMoving ? '이동중' : '정지') + '</span></td>' +
+          '<td><span class="ss-mono">' + curWpStr  + '</span></td>' +
+          '<td><span class="ss-mono">' + nextWpStr + '</span></td>' +
+          '<td>' + routeStr + '</td>' +
+          '<td>' + urlStr   + '</td>' +
+          '<td><button class="ss-fly-btn" onclick="flyToShip(\'' + shipId + '\')">지도 이동</button></td>' +
+          '</tr>';
+      }).join('');
+
+      tbody.innerHTML = rows || '<tr><td colspan="10" class="ss-empty">등록된 선박이 없습니다.</td></tr>';
+    }
+
+    function flyToShip(shipId) {
+      var m = shipMarkers[shipId];
+      if (!m || !map) return;
+      var ship = m._shipData;
+      map.setView([ship.lat, ship.lon], Math.max(map.getZoom(), 10), { animate: true });
+      selectedShipId = shipId;
+      m.openPopup();
+    }
+    window.flyToShip = flyToShip;
+
+    // 선박 현황 초기화 시 interval 등록 (initMap 이후 실행되도록 지연)
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(function() {
+        renderShipStatus();
+        setInterval(renderShipStatus, 1000);
+      }, 800);
+    });
 
     /* ========== 선박 추가 폼 ========== */
     (function() {
