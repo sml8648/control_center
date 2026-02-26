@@ -72,3 +72,64 @@ class AddMapPointRequest(BaseModel):
     lat: float
     lon: float
     label: str = ""
+
+
+class Ship(BaseModel):
+    """A vessel displayed on the map."""
+
+    id: str
+    name: str
+    lat: float
+    lon: float
+    heading: float = 0.0  # degrees, 0=North
+
+
+class SetWaypointRequest(BaseModel):
+    """Request to set a waypoint for a ship."""
+
+    lat: float
+    lon: float
+    label: str = ""
+
+
+class ShipWaypoint(BaseModel):
+    """Waypoint assigned to a ship."""
+
+    ship_id: str
+    lat: float
+    lon: float
+    label: str = ""
+    set_at: datetime
+
+
+class RouteWaypoint(BaseModel):
+    """A single waypoint inside an RTZ route."""
+
+    id: int
+    lat: float
+    lon: float
+    desired_course: Optional[float] = None
+    desired_speed: Optional[float] = None
+    waypoint_type: Optional[str] = None
+
+
+class ZonePoint(BaseModel):
+    lat: float
+    lon: float
+
+
+class ZonePolygon(BaseModel):
+    """A polygon zone (keep-in or keep-out) from an RTZ file."""
+
+    points: list[ZonePoint]
+
+
+class ShipRoute(BaseModel):
+    """RTZ-based route loaded for a ship."""
+
+    ship_id: str
+    route_name: str
+    waypoints: list[RouteWaypoint]
+    keep_in_areas: list[ZonePolygon]
+    keep_out_areas: list[ZonePolygon]
+    loaded_at: datetime

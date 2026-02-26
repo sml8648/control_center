@@ -176,6 +176,253 @@
     .map-form .field label { font-size: 0.8rem; color: var(--text-muted); }
     .btn-secondary { background: var(--border); color: var(--text); }
     .btn-secondary:hover { filter: brightness(1.2); }
+
+    /* Ship markers */
+    .ship-marker-wrap { position: relative; }
+    .ship-label {
+      position: absolute;
+      top: 38px;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+      text-shadow: 0 0 4px #000, 0 0 8px #000;
+      pointer-events: none;
+    }
+
+    /* Leaflet popup dark theme */
+    .leaflet-popup-content-wrapper {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+    }
+    .leaflet-popup-tip { background: var(--surface); }
+    .leaflet-popup-close-button { color: var(--text-muted) !important; }
+    .ship-popup { min-width: 200px; }
+    .ship-popup-title {
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .ship-popup-coords {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+      line-height: 1.8;
+    }
+    .ship-popup-coords strong { color: var(--text); }
+    .ship-popup-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0.75rem 0;
+    }
+    .ship-popup-wp-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+    .ship-popup-wp-inputs {
+      display: flex;
+      gap: 0.4rem;
+      margin-bottom: 0.5rem;
+    }
+    .ship-popup-wp-inputs input {
+      flex: 1;
+      padding: 0.4rem 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      width: 0;
+    }
+    .ship-popup-btns { display: flex; gap: 0.4rem; }
+    .ship-popup-wp-btn {
+      flex: 1;
+      padding: 0.45rem;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 0.85rem;
+      border-radius: 5px;
+      border: none;
+      cursor: pointer;
+      background: var(--accent);
+      color: var(--bg);
+    }
+    .ship-popup-wp-btn:hover { filter: brightness(1.1); }
+    .ship-popup-pick-btn {
+      flex: 1;
+      padding: 0.45rem;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 0.85rem;
+      border-radius: 5px;
+      border: 1px solid var(--accent);
+      cursor: pointer;
+      background: transparent;
+      color: var(--accent);
+    }
+    .ship-popup-pick-btn:hover { background: var(--accent-dim); }
+    .ship-popup-rtz-btn {
+      width: 100%;
+      margin-top: 0.5rem;
+      padding: 0.4rem;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 0.8rem;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-muted);
+    }
+    .ship-popup-rtz-btn:hover { border-color: var(--text-muted); color: var(--text); }
+    .ship-popup-queue {
+      margin: 0.3rem 0 0.4rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.73rem;
+      max-height: 76px;
+      overflow-y: auto;
+      line-height: 1.7;
+    }
+    .ship-popup-queue-item { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ship-popup-queue-item.active { font-weight: 700; }
+    .ship-popup-clear-btn {
+      width: 100%;
+      margin-top: 0.3rem;
+      padding: 0.3rem;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.75rem;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-muted);
+    }
+    .ship-popup-clear-btn:hover { border-color: var(--danger); color: var(--danger); }
+    .route-wp-marker {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      color: #0d1117;
+      border: 2px solid rgba(0,0,0,0.4);
+    }
+    .route-wp-marker-visited {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      background: #3a3f47 !important;
+      box-shadow: none !important;
+      color: #3fb950;
+      border: 2px solid #3fb950;
+      opacity: 0.85;
+    }
+    .leaflet-tooltip.zone-label {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      color: inherit;
+      text-shadow: 0 0 4px #000, 0 0 8px #000;
+      padding: 0;
+    }
+    .waypoint-marker-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ship-speed-row {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .ship-speed-row .speed-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 0.45rem;
+    }
+    .ship-speed-row .speed-header strong { color: var(--accent); }
+    .ship-speed-row .speed-ticks {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 0.3rem;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+      padding: 0;
+      border: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+      cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+      cursor: pointer;
+      border: none;
+    }
+    #wp-pick-hint {
+      display: none;
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: rgba(13,17,23,0.92);
+      border: 1px solid var(--accent);
+      border-radius: 20px;
+      padding: 0.4rem 1.1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--accent);
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    }
   </style>
 </head>
 <body>
@@ -229,11 +476,11 @@
         <div class="map-form">
           <div class="field">
             <label>위도 (lat)</label>
-            <input type="text" id="mapLat" placeholder="47.61 (씨애틀) / 33.75 (LA)" />
+            <input type="text" id="mapLat" placeholder="35.10 (부산) / 37.56 (서울)" />
           </div>
           <div class="field">
             <label>경도 (lon)</label>
-            <input type="text" id="mapLon" placeholder="-122.33 (씨애틀) / -118.27 (LA)" />
+            <input type="text" id="mapLon" placeholder="129.05 (부산) / 126.97 (서울)" />
           </div>
           <div class="field">
             <label>라벨 (선택)</label>
@@ -241,6 +488,14 @@
           </div>
           <button class="btn-primary" id="mapAddBtn" style="margin-right:0.5rem">좌표 추가</button>
           <button class="btn-secondary" id="mapClearBtn">지도 비우기</button>
+          <div class="ship-speed-row">
+            <div class="speed-header">
+              <span>선박 속도</span>
+              <strong id="shipSpeedLabel">보통</strong>
+            </div>
+            <input type="range" id="shipSpeedSlider" min="1" max="10" value="3" step="1">
+            <div class="speed-ticks"><span>느림</span><span>빠름</span></div>
+          </div>
         </div>
       </div>
 
@@ -375,7 +630,7 @@ DELETE /api/map/points</code></pre>
       try {
         el.classList.remove('map-loading');
         el.innerHTML = '';
-        map = L.map('map', { preferCanvas: true }).setView([47.6062, -122.3321], 9);
+        map = L.map('map', { preferCanvas: true }).setView([35.5, 129.5], 8);
 
         var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -407,6 +662,9 @@ DELETE /api/map/points</code></pre>
         window.refreshMapPoints = refreshMapPoints;
         refreshMapPoints();
         setInterval(refreshMapPoints, 5000);
+        refreshShips();
+        setInterval(refreshShips, 5000);
+        initShipLayer();
       } catch (err) {
         el.classList.add('map-loading');
         el.innerHTML = '지도 초기화 실패: ' + String(err.message);
@@ -451,6 +709,572 @@ DELETE /api/map/points</code></pre>
     } else {
       setTimeout(initMap, 50);
     }
+
+    /* ========== SHIP LAYER ========== */
+    var shipMarkers = {};      // ship_id -> L.marker
+    var waypointMarkers = {};  // ship_id -> L.marker
+    var waypointLines = {};    // ship_id -> L.polyline
+    var shipAnimations = {};   // ship_id -> interval handle
+    var routeLayers = {};      // ship_id -> [L.layer, ...]
+    var wpMarkers   = {};      // ship_id -> [L.marker, ...] (WP 마커만 별도 저장)
+    var SHIP_SPEED_STEP = 0.0012; // degrees per frame — updated by slider
+    var shipWpQueues         = {};  // ship_id -> [{lat, lon, label}, ...]
+    var shipWpCurIdx         = {};  // ship_id -> int  (-1 = 없음, 0+ = 현재 목표 인덱스)
+    var shipRouteData        = {};  // ship_id -> {name, wpCount, kiCount, koCount}
+    var shipPositionOverride = {};  // ship_id -> bool  도착 후 서버 위치 덮어쓰기 방지
+
+    var SHIP_COLORS = { 'ship-01': '#58a6ff', 'ship-02': '#3fb950' };
+
+    function shipSVG(heading, color) {
+      // Simple vessel arrow shape, rotates with heading
+      return [
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="36" height="36"',
+        ' style="transform:rotate(' + heading + 'deg);filter:drop-shadow(0 0 5px ' + color + ')">',
+        '<polygon points="16,3 27,26 16,21 5,26"',
+        ' fill="' + color + '" stroke="#0d1117" stroke-width="1.8" stroke-linejoin="round"/>',
+        '<rect x="13" y="15" width="6" height="5" rx="1" fill="#0d1117" opacity="0.55"/>',
+        '</svg>'
+      ].join('');
+    }
+
+    function waypointSVG(color) {
+      return [
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28">',
+        '<circle cx="12" cy="12" r="9" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-dasharray="4 2"/>',
+        '<line x1="12" y1="3" x2="12" y2="21" stroke="' + color + '" stroke-width="1.5"/>',
+        '<line x1="3" y1="12" x2="21" y2="12" stroke="' + color + '" stroke-width="1.5"/>',
+        '</svg>'
+      ].join('');
+    }
+
+    function buildShipPopup(ship) {
+      var color = SHIP_COLORS[ship.id] || '#fff';
+      var queue = shipWpQueues[ship.id] || [];
+      var curIdx = (shipWpCurIdx[ship.id] != null) ? shipWpCurIdx[ship.id] : -1;
+
+      // RTZ route 정보 섹션
+      var rtzSection = '';
+      var rd = shipRouteData[ship.id];
+      if (rd) {
+        rtzSection = [
+          '<div style="margin:0.3rem 0;padding:0.35rem 0.5rem;background:#161b22;border-radius:5px;',
+          'border:1px solid #30363d;font-family:\'JetBrains Mono\',monospace;font-size:0.72rem;color:var(--text-muted)">',
+          '<span style="color:#3fb950">●</span>&nbsp;',
+          escapeHtml(rd.name) + '&nbsp;&nbsp;',
+          'WP&nbsp;<strong style="color:var(--text)">' + rd.wpCount + '</strong>',
+          (rd.kiCount ? '&nbsp;|&nbsp;KI&nbsp;<strong style="color:#3fb950">' + rd.kiCount + '</strong>' : ''),
+          (rd.koCount ? '&nbsp;|&nbsp;KO&nbsp;<strong style="color:#f85149">' + rd.koCount + '</strong>' : ''),
+          '</div>',
+        ].join('');
+      }
+
+      // WP 대기열 섹션
+      var queueSection = '';
+      if (queue.length > 0) {
+        var qLabel = 'WP 대기열&nbsp;<span style="color:' + color + '">' + (curIdx + 1) + '&nbsp;/&nbsp;' + queue.length + '</span>';
+        var items = queue.map(function(wp, i) {
+          var isCur = (i === curIdx);
+          var prefix = isCur ? '<span style="color:' + color + '">→</span>&nbsp;' : '&nbsp;&nbsp;&nbsp;';
+          var style = isCur ? 'active" style="color:' + color : '';
+          return '<div class="ship-popup-queue-item ' + style + '">' +
+            prefix + (i + 1) + '.&nbsp;' + wp.lat.toFixed(4) + ',&nbsp;' + wp.lon.toFixed(4) +
+            '</div>';
+        }).join('');
+        queueSection = [
+          '<hr class="ship-popup-divider">',
+          '<div class="ship-popup-wp-label">' + qLabel + '</div>',
+          '<div class="ship-popup-queue">' + items + '</div>',
+          '<div style="display:flex;gap:0.4rem;margin-top:0.35rem">',
+          '<button class="ship-popup-wp-btn" style="font-size:0.78rem;padding:0.35rem" ',
+          'onclick="cycleToNextWp(\'' + ship.id + '\');map.closePopup()">▶ 다음 WP</button>',
+          '<button class="ship-popup-clear-btn" style="flex:1" onclick="clearWpQueue(\'' + ship.id + '\')">초기화</button>',
+          '</div>',
+        ].join('');
+      }
+
+      return [
+        '<div class="ship-popup">',
+        '<div class="ship-popup-title">',
+        '<svg width="14" height="14" viewBox="0 0 32 32"><polygon points="16,3 27,26 16,21 5,26" fill="' + color + '"/></svg>',
+        escapeHtml(ship.name),
+        '</div>',
+        '<div class="ship-popup-coords">',
+        '위도&nbsp;&nbsp;<strong>' + ship.lat.toFixed(5) + '°</strong><br>',
+        '경도&nbsp;&nbsp;<strong>' + ship.lon.toFixed(5) + '°</strong><br>',
+        '방위&nbsp;&nbsp;<strong>' + ship.heading.toFixed(1) + '°</strong>',
+        '</div>',
+        rtzSection,
+        queueSection,
+        '<hr class="ship-popup-divider">',
+        '<div class="ship-popup-wp-label">대기열에 추가</div>',
+        '<div class="ship-popup-wp-inputs">',
+        '<input type="number" id="wp-lat-' + ship.id + '" placeholder="위도" step="0.0001">',
+        '<input type="number" id="wp-lon-' + ship.id + '" placeholder="경도" step="0.0001">',
+        '</div>',
+        '<div class="ship-popup-btns">',
+        '<button class="ship-popup-wp-btn" onclick="sendWaypoint(\'' + ship.id + '\')">추가</button>',
+        '<button class="ship-popup-pick-btn" onclick="startPickingWaypoint(\'' + ship.id + '\')">지도에서 선택</button>',
+        '</div>',
+        '<button class="ship-popup-rtz-btn" onclick="loadRtzForShip(\'' + ship.id + '\')">📂 RTZ 루트 불러오기</button>',
+        '</div>'
+      ].join('');
+    }
+
+    function renderWaypoint(ship, wp) {
+      var color = SHIP_COLORS[ship.id] || '#fff';
+
+      // Remove old waypoint marker/line for this ship
+      if (waypointMarkers[ship.id]) { waypointMarkers[ship.id].remove(); }
+      if (waypointLines[ship.id]) { waypointLines[ship.id].remove(); }
+
+      // Dashed line from ship to waypoint
+      waypointLines[ship.id] = L.polyline(
+        [[ship.lat, ship.lon], [wp.lat, wp.lon]],
+        { color: color, weight: 1.5, dashArray: '6 5', opacity: 0.7 }
+      ).addTo(map);
+
+      // Waypoint crosshair marker
+      var icon = L.divIcon({
+        html: waypointSVG(color),
+        className: 'waypoint-marker-icon',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      });
+      waypointMarkers[ship.id] = L.marker([wp.lat, wp.lon], { icon: icon })
+        .addTo(map)
+        .bindPopup(
+          '<div style="font-family:\'JetBrains Mono\',monospace;font-size:0.8rem;color:var(--text-muted)">' +
+          '<strong style="color:' + color + '">' + escapeHtml(ship.name) + ' WP</strong><br>' +
+          '위도 ' + wp.lat.toFixed(5) + '°<br>경도 ' + wp.lon.toFixed(5) + '°</div>'
+        );
+
+      // Start moving the ship toward this waypoint
+      startShipAnimation(ship.id, wp.lat, wp.lon);
+    }
+
+    function startShipAnimation(shipId, targetLat, targetLon, onArrival) {
+      // Cancel any running animation for this ship
+      if (shipAnimations[shipId]) {
+        clearInterval(shipAnimations[shipId]);
+        delete shipAnimations[shipId];
+      }
+
+      var FRAME_MS = 80; // ~12 fps — smooth but light on CPU
+
+      shipAnimations[shipId] = setInterval(function() {
+        var m = shipMarkers[shipId];
+        if (!m) { clearInterval(shipAnimations[shipId]); delete shipAnimations[shipId]; return; }
+
+        var ship = m._shipData;
+        var dLat = targetLat - ship.lat;
+        var dLon = targetLon - ship.lon;
+        var dist = Math.sqrt(dLat * dLat + dLon * dLon);
+
+        if (dist < 0.0008) {
+          // Arrived — snap to target and stop
+          clearInterval(shipAnimations[shipId]);
+          delete shipAnimations[shipId];
+          ship.lat = targetLat;
+          ship.lon = targetLon;
+          // 도착 위치 고정: refreshShips가 서버 초기 위치로 되돌리지 못하게 방지
+          shipPositionOverride[shipId] = true;
+          if (typeof onArrival === 'function') {
+            onArrival();
+          } else {
+            showToast(shipId.toUpperCase() + ' 목표지점 도착', 'success');
+          }
+        } else {
+          var step = Math.min(SHIP_SPEED_STEP, dist);
+          ship.lat += (dLat / dist) * step;
+          ship.lon += (dLon / dist) * step;
+          // Heading: 0=North, clockwise (atan2 eastward/northward)
+          ship.heading = (Math.atan2(dLon, dLat) * 180 / Math.PI + 360) % 360;
+        }
+
+        m._shipData = ship;
+        m.setLatLng([ship.lat, ship.lon]);
+
+        // 방향(heading)만 기존 DOM의 SVG transform을 직접 업데이트
+        // → setIcon() 호출을 피해 DOM 재생성 없이 클릭 핸들러를 유지
+        var el = m.getElement();
+        if (el) {
+          var svg = el.querySelector('svg');
+          if (svg) svg.style.transform = 'rotate(' + ship.heading + 'deg)';
+        }
+
+        // Keep dashed line from ship to waypoint updated
+        if (waypointLines[shipId]) {
+          waypointLines[shipId].setLatLngs([[ship.lat, ship.lon], [targetLat, targetLon]]);
+        }
+      }, FRAME_MS);
+    }
+
+    /* ── WP 큐 헬퍼 ── */
+
+    function enqueueWaypoint(shipId, lat, lon, label) {
+      if (!shipWpQueues[shipId]) { shipWpQueues[shipId] = []; shipWpCurIdx[shipId] = -1; }
+      shipWpQueues[shipId].push({ lat: lat, lon: lon, label: label || '' });
+
+      // 처음 추가된 WP → 바로 이동 시작
+      if (shipWpQueues[shipId].length === 1) {
+        shipWpCurIdx[shipId] = 0;
+        var m = shipMarkers[shipId];
+        if (m) renderWaypoint(m._shipData, { lat: lat, lon: lon });
+      }
+    }
+
+    function cycleToNextWp(shipId) {
+      var queue = shipWpQueues[shipId];
+      if (!queue || queue.length === 0) return;
+      // 다음 인덱스로 전환 (순환)
+      shipWpCurIdx[shipId] = ((shipWpCurIdx[shipId] + 1) % queue.length);
+      var wp = queue[shipWpCurIdx[shipId]];
+      var m = shipMarkers[shipId];
+      if (m) renderWaypoint(m._shipData, wp);
+    }
+    window.cycleToNextWp = cycleToNextWp;
+
+    function clearWpQueue(shipId) {
+      shipWpQueues[shipId] = [];
+      shipWpCurIdx[shipId] = -1;
+      shipPositionOverride[shipId] = false;  // 서버 위치 복원 허용
+      if (shipAnimations[shipId]) { clearInterval(shipAnimations[shipId]); delete shipAnimations[shipId]; }
+      if (waypointMarkers[shipId]) { waypointMarkers[shipId].remove(); delete waypointMarkers[shipId]; }
+      if (waypointLines[shipId]) { waypointLines[shipId].remove(); delete waypointLines[shipId]; }
+      if (map) map.closePopup();
+      showToast(shipId.toUpperCase() + ' 웨이포인트 대기열 초기화');
+    }
+    window.clearWpQueue = clearWpQueue;
+
+    async function sendWaypoint(shipId) {
+      var latEl = document.getElementById('wp-lat-' + shipId);
+      var lonEl = document.getElementById('wp-lon-' + shipId);
+      var lat = parseFloat(latEl.value);
+      var lon = parseFloat(lonEl.value);
+      if (isNaN(lat) || isNaN(lon)) {
+        showToast('위도/경도를 입력해 주세요.', 'error');
+        return;
+      }
+      try {
+        var res = await fetch('/api/ships/' + shipId + '/waypoint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat: lat, lon: lon }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        enqueueWaypoint(shipId, lat, lon, '');
+        if (map) { map.closePopup(); }
+        showToast(shipId.toUpperCase() + ' WP 대기열 추가 (' + lat.toFixed(4) + ', ' + lon.toFixed(4) + ')');
+      } catch (e) {
+        showToast(e.message || '전송 실패', 'error');
+      }
+    }
+    window.sendWaypoint = sendWaypoint;
+
+    /* ========== RTZ ROUTE ========== */
+
+    function loadRtzForShip(shipId) {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.xml,.rtz';
+      input.style.display = 'none';
+      document.body.appendChild(input);
+      input.addEventListener('change', function() {
+        var file = input.files[0];
+        if (!file) { document.body.removeChild(input); return; }
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          document.body.removeChild(input);
+          if (map) map.closePopup();
+          fetch('/api/ships/' + shipId + '/route/rtz', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/xml' },
+            body: e.target.result,
+          })
+          .then(function(r) {
+            if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+            return r.json();
+          })
+          .then(function(route) {
+            drawRoute(shipId, route);
+            startRouteAnimation(shipId, route.waypoints);
+          })
+          .catch(function(err) { showToast('RTZ 불러오기 실패: ' + err.message, 'error'); });
+        };
+        reader.readAsText(file);
+      });
+      input.click();
+    }
+    window.loadRtzForShip = loadRtzForShip;
+
+    function drawRoute(shipId, route) {
+      // Remove previous route layers for this ship
+      if (routeLayers[shipId]) {
+        routeLayers[shipId].forEach(function(l) { l.remove(); });
+      }
+      routeLayers[shipId] = [];
+
+      var color = SHIP_COLORS[shipId] || '#fff';
+      var bounds = [];
+
+      // ── Route polyline ──
+      var latLngs = route.waypoints.map(function(wp) { return [wp.lat, wp.lon]; });
+      if (latLngs.length > 1) {
+        var routeLine = L.polyline(latLngs, {
+          color: color, weight: 2, opacity: 0.75, dashArray: '5 3',
+        }).addTo(map);
+        routeLayers[shipId].push(routeLine);
+        latLngs.forEach(function(ll) { bounds.push(ll); });
+      }
+
+      // ── Waypoint number markers ──
+      wpMarkers[shipId] = [];
+      route.waypoints.forEach(function(wp, idx) {
+        bounds.push([wp.lat, wp.lon]);
+        var icon = L.divIcon({
+          html: '<div class="route-wp-marker" style="background:' + color + ';box-shadow:0 0 5px ' + color + '">' + (idx + 1) + '</div>',
+          className: '',
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+        });
+        var label = 'WP' + wp.id;
+        if (wp.waypoint_type) label += ' [' + wp.waypoint_type + ']';
+        var popupLines = [
+          '<div style="font-family:\'JetBrains Mono\',monospace;font-size:0.8rem">',
+          '<strong style="color:' + color + '">' + label + '</strong><br>',
+          '위도 ' + wp.lat.toFixed(5) + '°<br>',
+          '경도 ' + wp.lon.toFixed(5) + '°',
+        ];
+        if (wp.desired_speed != null) popupLines.push('<br>속도 ' + wp.desired_speed + ' kn');
+        if (wp.desired_course != null) popupLines.push('<br>침로 ' + wp.desired_course + '°');
+        popupLines.push('</div>');
+        var m = L.marker([wp.lat, wp.lon], { icon: icon, zIndexOffset: 500 })
+          .addTo(map)
+          .bindPopup(popupLines.join(''));
+        routeLayers[shipId].push(m);
+        wpMarkers[shipId].push(m);
+      });
+
+      // ── Keep-In zones (green) ──
+      route.keep_in_areas.forEach(function(zone) {
+        var pts = zone.points.map(function(p) { return [p.lat, p.lon]; });
+        pts.forEach(function(p) { bounds.push(p); });
+        var poly = L.polygon(pts, {
+          color: '#3fb950', fillColor: '#3fb950', fillOpacity: 0.07,
+          dashArray: '8 4', weight: 2,
+        }).addTo(map);
+        poly.bindTooltip('Keep-In', {
+          permanent: true, direction: 'center', className: 'zone-label',
+          offset: [0, 0],
+        }).openTooltip();
+        routeLayers[shipId].push(poly);
+      });
+
+      // ── Keep-Out zones (red) ──
+      route.keep_out_areas.forEach(function(zone) {
+        var pts = zone.points.map(function(p) { return [p.lat, p.lon]; });
+        pts.forEach(function(p) { bounds.push(p); });
+        var poly = L.polygon(pts, {
+          color: '#f85149', fillColor: '#f85149', fillOpacity: 0.07,
+          dashArray: '8 4', weight: 2,
+        }).addTo(map);
+        poly.bindTooltip('Keep-Out', {
+          permanent: true, direction: 'center', className: 'zone-label',
+          offset: [0, 0],
+        }).openTooltip();
+        routeLayers[shipId].push(poly);
+      });
+
+      // Fit map to all route content
+      if (bounds.length > 0) {
+        map.fitBounds(bounds, { padding: [40, 40] });
+      }
+
+      var wpCount = route.waypoints.length;
+      var kiCount = route.keep_in_areas.length;
+      var koCount = route.keep_out_areas.length;
+
+      // 팝업에서 사용할 route 요약 저장
+      shipRouteData[shipId] = {
+        name: route.route_name || '(이름 없음)',
+        wpCount: wpCount,
+        kiCount: kiCount,
+        koCount: koCount,
+      };
+
+      showToast(
+        shipId.toUpperCase() + ' 루트 로드됨 — WP ' + wpCount + '개' +
+        (kiCount ? ', Keep-In ' + kiCount + '개' : '') +
+        (koCount ? ', Keep-Out ' + koCount + '개' : '')
+      );
+    }
+
+    function markWpVisited(shipId, wpIdx) {
+      var markers = wpMarkers[shipId];
+      if (!markers || !markers[wpIdx]) return;
+      var visitedIcon = L.divIcon({
+        html: '<div class="route-wp-marker-visited">✓</div>',
+        className: '',
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+      });
+      markers[wpIdx].setIcon(visitedIcon);
+    }
+
+    function startRouteAnimation(shipId, waypoints) {
+      if (!waypoints || waypoints.length === 0) return;
+      var idx = 0;
+      function goNext() {
+        if (idx >= waypoints.length) {
+          showToast(shipId.toUpperCase() + ' 루트 완주!', 'success');
+          return;
+        }
+        var wpIdx = idx++;
+        startShipAnimation(shipId, waypoints[wpIdx].lat, waypoints[wpIdx].lon, function() {
+          markWpVisited(shipId, wpIdx);
+          goNext();
+        });
+      }
+      goNext();
+    }
+
+    /* --- Ship speed slider --- */
+    (function() {
+      var SPEED_LABELS = ['', '매우 느림', '느림', '보통', '보통', '보통', '빠름', '빠름', '매우 빠름', '매우 빠름', '최대'];
+      function sliderToStep(v) { return v * 0.0004; } // 1→0.0004, 3→0.0012, 10→0.004
+
+      var slider = document.getElementById('shipSpeedSlider');
+      var label  = document.getElementById('shipSpeedLabel');
+      if (slider) {
+        slider.addEventListener('input', function() {
+          var v = parseInt(this.value, 10);
+          SHIP_SPEED_STEP = sliderToStep(v);
+          label.textContent = SPEED_LABELS[v] || v;
+        });
+      }
+    })();
+
+    /* --- Map-click waypoint picking --- */
+    var pickingShipId = null;
+
+    function startPickingWaypoint(shipId) {
+      pickingShipId = shipId;
+      map.getContainer().style.cursor = 'crosshair';
+      var color = SHIP_COLORS[shipId] || '#58a6ff';
+      var hint = document.getElementById('wp-pick-hint');
+      hint.textContent = shipId.toUpperCase() + '  웨이포인트 → 지도를 클릭하세요   ESC: 취소';
+      hint.style.borderColor = color;
+      hint.style.color = color;
+      hint.style.display = 'block';
+      map.closePopup();
+    }
+    window.startPickingWaypoint = startPickingWaypoint;
+
+    function cancelPickingMode() {
+      pickingShipId = null;
+      map.getContainer().style.cursor = '';
+      var hint = document.getElementById('wp-pick-hint');
+      if (hint) hint.style.display = 'none';
+    }
+
+    function initShipLayer() {
+      // Attach hint div to map container (position:relative set by Leaflet)
+      var hint = document.createElement('div');
+      hint.id = 'wp-pick-hint';
+      map.getContainer().appendChild(hint);
+
+      // ESC cancels picking mode
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && pickingShipId) cancelPickingMode();
+      });
+
+      // Map click: place waypoint when in picking mode
+      map.on('click', function(e) {
+        if (!pickingShipId) return;
+        var shipId = pickingShipId;
+        cancelPickingMode();
+        fetch('/api/ships/' + shipId + '/waypoint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat: e.latlng.lat, lon: e.latlng.lng }),
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(wp) {
+          enqueueWaypoint(shipId, wp.lat, wp.lon, '');
+          showToast(shipId.toUpperCase() + ' WP 대기열 추가 (' +
+            e.latlng.lat.toFixed(4) + ', ' + e.latlng.lng.toFixed(4) + ')');
+        })
+        .catch(function() { showToast('전송 실패', 'error'); });
+      });
+    }
+
+    function bringShipLayersToFront(shipId) {
+      // 모든 선박 레이어를 뒤로
+      Object.keys(shipMarkers).forEach(function(id) {
+        if (waypointMarkers[id]) waypointMarkers[id].setZIndexOffset(0);
+        if (waypointLines[id] && waypointLines[id].bringToBack) waypointLines[id].bringToBack();
+        if (routeLayers[id]) {
+          routeLayers[id].forEach(function(l) {
+            if (l.bringToBack)       l.bringToBack();
+            if (l.setZIndexOffset)   l.setZIndexOffset(0);
+          });
+        }
+      });
+
+      // 선택한 선박 레이어를 최상단으로
+      if (waypointMarkers[shipId]) waypointMarkers[shipId].setZIndexOffset(3000);
+      if (waypointLines[shipId] && waypointLines[shipId].bringToFront) waypointLines[shipId].bringToFront();
+      if (routeLayers[shipId]) {
+        routeLayers[shipId].forEach(function(l) {
+          if (l.bringToFront)      l.bringToFront();
+          if (l.setZIndexOffset)   l.setZIndexOffset(3000);
+        });
+      }
+    }
+
+    async function refreshShips() {
+      if (!map) return;
+      try {
+        var res = await fetch('/api/ships');
+        var ships = await res.json();
+
+        ships.forEach(function(ship) {
+          var color = SHIP_COLORS[ship.id] || '#fff';
+          var icon = L.divIcon({
+            html: '<div class="ship-marker-wrap">' + shipSVG(ship.heading, color) +
+                  '<span class="ship-label" style="color:' + color + '">' + escapeHtml(ship.name) + '</span></div>',
+            className: '',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18],
+          });
+
+          if (shipMarkers[ship.id]) {
+            // 애니메이션 중이거나 도착 위치 고정 중이면 서버 위치로 덮어쓰지 않음
+            if (!shipAnimations[ship.id] && !shipPositionOverride[ship.id]) {
+              shipMarkers[ship.id].setLatLng([ship.lat, ship.lon]);
+              shipMarkers[ship.id].setIcon(icon);
+              shipMarkers[ship.id]._shipData = ship;
+              if (waypointLines[ship.id]) {
+                var wp = waypointMarkers[ship.id] ? waypointMarkers[ship.id].getLatLng() : null;
+                if (wp) { waypointLines[ship.id].setLatLngs([[ship.lat, ship.lon], [wp.lat, wp.lng]]); }
+              }
+            }
+          } else {
+            var marker = L.marker([ship.lat, ship.lon], { icon: icon, zIndexOffset: 1000 })
+              .addTo(map)
+              .bindPopup(buildShipPopup(ship), { maxWidth: 260 });
+            marker._shipData = ship;
+            // 팝업 열릴 때마다 최신 데이터(위치·대기열·RTZ 정보)로 재빌드
+            marker.on('popupopen', function() {
+              this.setPopupContent(buildShipPopup(this._shipData));
+              bringShipLayersToFront(this._shipData.id);
+            });
+            shipMarkers[ship.id] = marker;
+          }
+        });
+      } catch (e) { /* silent */ }
+    }
+
   </script>
 </body>
 </html>

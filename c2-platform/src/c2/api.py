@@ -1,11 +1,12 @@
 """FastAPI app: web UI and REST API for subsystem commands."""
 import logging
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
@@ -18,9 +19,16 @@ from .models import (
     CommandRecord,
     CommandStatus,
     MapPoint,
+    RouteWaypoint,
     SendCommandRequest,
     SendCommandResponse,
+    SetWaypointRequest,
+    Ship,
+    ShipRoute,
+    ShipWaypoint,
     SubsystemInfo,
+    ZonePoint,
+    ZonePolygon,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,6 +40,103 @@ _HISTORY_LIMIT = 200
 # Map points (lat/lon markers)
 _map_points: list[MapPoint] = []
 _MAP_POINTS_LIMIT = 500
+
+# Ships (two vessels displayed on the map)
+_ships: list[Ship] = [
+    Ship(id="ship-01", name="SHIP-01", lat=35.10, lon=129.05, heading=45.0),
+    Ship(id="ship-02", name="SHIP-02", lat=34.90, lon=128.70, heading=200.0),
+]
+_ship_waypoints: dict[str, ShipWaypoint] = {}
+_ship_routes: dict[str, ShipRoute] = {}
+
+
+def parse_rtz(xml_str: str, ship_id: str) -> ShipRoute:
+    """Parse an RTZ 1.0 XML string and return a ShipRoute."""
+    root = ET.fromstring(xml_str)
+
+    # Detect namespace from root tag (e.g. {http://www.cirm.org/RTZ/1/0})
+    ns = ""
+    if root.tag.startswith("{"):
+        ns = root.tag[1 : root.tag.index("}")]
+
+    def t(name: str) -> str:
+        return f"{{{ns}}}{name}" if ns else name
+
+    # Route name
+    ri = root.find(t("routeInfo"))
+    route_name = ri.get("routeName", "") if ri is not None else ""
+
+    # Waypoints
+    waypoints: list[RouteWaypoint] = []
+    wps_el = root.find(t("waypoints"))
+    if wps_el is not None:
+        for wp_el in wps_el.findall(t("waypoint")):
+            pos = wp_el.find(t("position"))
+            if pos is None:
+                continue
+            wp_id = int(wp_el.get("id", 0))
+            lat = float(pos.get("lat", 0))
+            lon = float(pos.get("lon", 0))
+
+            desired_course: Optional[float] = None
+            desired_speed: Optional[float] = None
+            wp_type: Optional[str] = None
+
+            exts = wp_el.find(t("extensions"))
+            if exts is not None:
+                for ext in exts.findall(t("extension")):
+                    wt = ext.find(t("waypointType"))
+                    if wt is not None and wp_type is None:
+                        wp_type = wt.get("type")
+                    for md in ext.findall(t("missionData")):
+                        if desired_course is None and md.get("desiredCourse"):
+                            desired_course = float(md.get("desiredCourse"))  # type: ignore[arg-type]
+                        if desired_speed is None and md.get("desiredSpeed"):
+                            desired_speed = float(md.get("desiredSpeed"))  # type: ignore[arg-type]
+
+            waypoints.append(
+                RouteWaypoint(
+                    id=wp_id,
+                    lat=lat,
+                    lon=lon,
+                    desired_course=desired_course,
+                    desired_speed=desired_speed,
+                    waypoint_type=wp_type,
+                )
+            )
+
+    # Keep-in / keep-out zones from root-level extensions
+    keep_in_areas: list[ZonePolygon] = []
+    keep_out_areas: list[ZonePolygon] = []
+
+    root_exts = root.find(t("extensions"))
+    if root_exts is not None:
+        for ext in root_exts.findall(t("extension")):
+            ki = ext.find(t("keepInArea"))
+            if ki is not None:
+                pts = [
+                    ZonePoint(lat=float(p.get("lat", 0)), lon=float(p.get("lon", 0)))
+                    for p in ki.findall(t("point"))
+                ]
+                if pts:
+                    keep_in_areas.append(ZonePolygon(points=pts))
+            ko = ext.find(t("keepOutArea"))
+            if ko is not None:
+                pts = [
+                    ZonePoint(lat=float(p.get("lat", 0)), lon=float(p.get("lon", 0)))
+                    for p in ko.findall(t("point"))
+                ]
+                if pts:
+                    keep_out_areas.append(ZonePolygon(points=pts))
+
+    return ShipRoute(
+        ship_id=ship_id,
+        route_name=route_name,
+        waypoints=waypoints,
+        keep_in_areas=keep_in_areas,
+        keep_out_areas=keep_out_areas,
+        loaded_at=datetime.now(timezone.utc),
+    )
 
 
 def _subsystem_to_info(s: SubsystemConfig) -> SubsystemInfo:
@@ -211,6 +316,72 @@ def create_app(config_path: Optional[Path] = None) -> FastAPI:
     def clear_map_points():
         """Remove all points from the map."""
         _map_points.clear()
+        return {"message": "cleared"}
+
+    # ---------- Ships API ----------
+
+    @app.get("/api/ships", response_model=list[Ship])
+    def list_ships():
+        """List all ships on the map."""
+        return list(_ships)
+
+    @app.post("/api/ships/{ship_id}/waypoint", response_model=ShipWaypoint)
+    def set_ship_waypoint(ship_id: str, body: SetWaypointRequest):
+        """Set a waypoint for a ship."""
+        ship = next((s for s in _ships if s.id == ship_id), None)
+        if not ship:
+            raise HTTPException(status_code=404, detail="Ship not found")
+        wp = ShipWaypoint(
+            ship_id=ship_id,
+            lat=body.lat,
+            lon=body.lon,
+            label=body.label or f"{ship.name} WP",
+            set_at=datetime.now(timezone.utc),
+        )
+        _ship_waypoints[ship_id] = wp
+        return wp
+
+    @app.get("/api/ships/{ship_id}/waypoint", response_model=ShipWaypoint)
+    def get_ship_waypoint(ship_id: str):
+        """Get the current waypoint for a ship."""
+        if ship_id not in _ship_waypoints:
+            raise HTTPException(status_code=404, detail="No waypoint set")
+        return _ship_waypoints[ship_id]
+
+    @app.get("/api/ships/waypoints/all", response_model=dict[str, ShipWaypoint])
+    def get_all_ship_waypoints():
+        """Get all ship waypoints keyed by ship id."""
+        return dict(_ship_waypoints)
+
+    # ---------- Ship RTZ Route API ----------
+
+    @app.post("/api/ships/{ship_id}/route/rtz", response_model=ShipRoute)
+    async def upload_ship_route_rtz(ship_id: str, request: Request):
+        """Upload an RTZ XML file (raw body, Content-Type: application/xml) to define the ship's route."""
+        ship = next((s for s in _ships if s.id == ship_id), None)
+        if not ship:
+            raise HTTPException(status_code=404, detail="Ship not found")
+        body = await request.body()
+        try:
+            route = parse_rtz(body.decode("utf-8"), ship_id)
+        except ET.ParseError as exc:
+            raise HTTPException(status_code=422, detail=f"RTZ XML parse error: {exc}") from exc
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=f"RTZ processing error: {exc}") from exc
+        _ship_routes[ship_id] = route
+        return route
+
+    @app.get("/api/ships/{ship_id}/route", response_model=ShipRoute)
+    def get_ship_route(ship_id: str):
+        """Get the currently loaded RTZ route for a ship."""
+        if ship_id not in _ship_routes:
+            raise HTTPException(status_code=404, detail="No route loaded for this ship")
+        return _ship_routes[ship_id]
+
+    @app.delete("/api/ships/{ship_id}/route")
+    def clear_ship_route(ship_id: str):
+        """Remove the RTZ route for a ship."""
+        _ship_routes.pop(ship_id, None)
         return {"message": "cleared"}
 
     # ---------- ENC tile proxy (NOAA WMS → tile) ----------
