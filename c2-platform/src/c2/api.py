@@ -16,6 +16,7 @@ from .dispatcher import Dispatcher
 from .enc_tiles import fetch_enc_tile
 from .models import (
     AddMapPointRequest,
+    AddShipRequest,
     CommandRecord,
     CommandStatus,
     MapPoint,
@@ -43,8 +44,8 @@ _MAP_POINTS_LIMIT = 500
 
 # Ships (two vessels displayed on the map)
 _ships: list[Ship] = [
-    Ship(id="ship-01", name="SHIP-01", lat=35.10, lon=129.05, heading=45.0),
-    Ship(id="ship-02", name="SHIP-02", lat=34.90, lon=128.70, heading=200.0),
+    Ship(id="ship-01", name="SHIP-01", lat=35.10, lon=129.05, heading=45.0, color="#58a6ff"),
+    Ship(id="ship-02", name="SHIP-02", lat=34.90, lon=128.70, heading=200.0, color="#3fb950"),
 ]
 _ship_waypoints: dict[str, ShipWaypoint] = {}
 _ship_routes: dict[str, ShipRoute] = {}
@@ -324,6 +325,33 @@ def create_app(config_path: Optional[Path] = None) -> FastAPI:
     def list_ships():
         """List all ships on the map."""
         return list(_ships)
+
+    @app.post("/api/ships", response_model=Ship, status_code=201)
+    def add_ship(body: AddShipRequest):
+        """Add a new ship to the map."""
+        ship_id = "ship-" + str(uuid4())[:8]
+        ship = Ship(
+            id=ship_id,
+            name=body.name,
+            lat=body.lat,
+            lon=body.lon,
+            heading=0.0,
+            color=body.color,
+            platform_url=body.platform_url or None,
+        )
+        _ships.append(ship)
+        return ship
+
+    @app.delete("/api/ships/{ship_id}")
+    def remove_ship(ship_id: str):
+        """Remove a ship from the map."""
+        ship = next((s for s in _ships if s.id == ship_id), None)
+        if not ship:
+            raise HTTPException(status_code=404, detail="Ship not found")
+        _ships.remove(ship)
+        _ship_waypoints.pop(ship_id, None)
+        _ship_routes.pop(ship_id, None)
+        return {"message": "removed"}
 
     @app.post("/api/ships/{ship_id}/waypoint", response_model=ShipWaypoint)
     def set_ship_waypoint(ship_id: str, body: SetWaypointRequest):

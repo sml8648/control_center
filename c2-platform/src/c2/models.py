@@ -82,6 +82,18 @@ class Ship(BaseModel):
     lat: float
     lon: float
     heading: float = 0.0  # degrees, 0=North
+    color: str = "#58a6ff"
+    platform_url: Optional[str] = None
+
+
+class AddShipRequest(BaseModel):
+    """Request to add a new ship to the map."""
+
+    name: str
+    lat: float
+    lon: float
+    color: str = "#58a6ff"
+    platform_url: Optional[str] = None
 
 
 class SetWaypointRequest(BaseModel):
