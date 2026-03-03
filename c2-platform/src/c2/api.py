@@ -25,6 +25,7 @@ from .models import (
     HbtConfig,
     HbtRecord,
     MapPoint,
+    PositionPollConfig,
     RouteWaypoint,
     SendCommandRequest,
     SendCommandResponse,
@@ -47,10 +48,9 @@ _HISTORY_LIMIT = 200
 _map_points: list[MapPoint] = []
 _MAP_POINTS_LIMIT = 500
 
-# Ships (two vessels displayed on the map)
+# Ships (one default vessel — add more via POST /api/ships)
 _ships: list[Ship] = [
     Ship(id="ship-01", name="SHIP-01", lat=35.10, lon=129.05, heading=45.0, color="#58a6ff"),
-    Ship(id="ship-02", name="SHIP-02", lat=34.90, lon=128.70, heading=200.0, color="#3fb950"),
 ]
 _ship_waypoints: dict[str, ShipWaypoint] = {}
 _ship_routes: dict[str, ShipRoute] = {}
@@ -66,6 +66,53 @@ _hbt_cfg: dict = {
 _hbt_records: list[HbtRecord] = []
 _HBT_RECORDS_LIMIT = 500
 _hbt_task: Optional[asyncio.Task] = None
+
+# ---------- Position polling ----------
+_pos_cfg: dict = {"interval_sec": 5.0, "timeout_sec": 3.0, "enabled": True}
+_pos_task: Optional[asyncio.Task] = None
+
+
+async def _position_poll_loop() -> None:
+    """Background coroutine: poll each ship's platform for live position data.
+
+    Each ship platform must expose:
+        GET {platform_url}/api/position
+        → 200 OK  {"lat": float, "lon": float, "heading": float}
+    """
+    import httpx
+
+    while True:
+        try:
+            await asyncio.sleep(float(_pos_cfg["interval_sec"]))
+            if not _pos_cfg["enabled"]:
+                continue
+
+            timeout = float(_pos_cfg["timeout_sec"])
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                for ship in list(_ships):
+                    if not ship.platform_url:
+                        ship.connection_status = "manual"
+                        continue
+
+                    url = ship.platform_url.rstrip("/") + "/api/position"
+                    try:
+                        r = await client.get(url)
+                        if r.status_code == 200:
+                            data = r.json()
+                            ship.lat = float(data["lat"])
+                            ship.lon = float(data["lon"])
+                            ship.heading = float(data.get("heading", ship.heading))
+                            ship.connection_status = "connected"
+                            ship.last_position_at = datetime.now(timezone.utc)
+                        else:
+                            ship.connection_status = "disconnected"
+                    except Exception:
+                        ship.connection_status = "disconnected"
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Position poll loop error")
 
 
 def _nmea_checksum(body: str) -> str:
@@ -257,21 +304,24 @@ def create_app(config_path: Optional[Path] = None) -> FastAPI:
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     @app.on_event("startup")
-    async def _start_hbt():
-        global _hbt_task
+    async def _start_background_tasks():
+        global _hbt_task, _pos_task
         _hbt_task = asyncio.create_task(_hbt_loop())
         logger.info("HBT background task started (interval=%.1fs)", _hbt_cfg["interval_sec"])
+        _pos_task = asyncio.create_task(_position_poll_loop())
+        logger.info("Position poll task started (interval=%.1fs)", _pos_cfg["interval_sec"])
 
     @app.on_event("shutdown")
-    async def _stop_hbt():
-        global _hbt_task
-        if _hbt_task:
-            _hbt_task.cancel()
-            try:
-                await _hbt_task
-            except asyncio.CancelledError:
-                pass
-            logger.info("HBT background task stopped")
+    async def _stop_background_tasks():
+        global _hbt_task, _pos_task
+        for task in [_hbt_task, _pos_task]:
+            if task:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        logger.info("Background tasks stopped")
 
     templates_dir = Path(__file__).parent / "templates"
     env = Environment(loader=FileSystemLoader(str(templates_dir)))
@@ -556,6 +606,25 @@ def create_app(config_path: Optional[Path] = None) -> FastAPI:
     def hbt_log(limit: int = 100):
         """Return the last N HBT transmission records (newest first)."""
         return _hbt_records[-limit:][::-1]
+
+    # ---------- Position poll config API ----------
+
+    @app.get("/api/ships/poll/config", response_model=PositionPollConfig)
+    def get_pos_poll_config():
+        """Return current position polling configuration."""
+        return PositionPollConfig(**_pos_cfg)
+
+    @app.post("/api/ships/poll/config", response_model=PositionPollConfig)
+    def update_pos_poll_config(body: PositionPollConfig):
+        """Update position polling configuration."""
+        _pos_cfg.update(body.model_dump())
+        return PositionPollConfig(**_pos_cfg)
+
+    @app.post("/api/ships/poll/toggle")
+    def toggle_pos_poll():
+        """Toggle position polling on/off."""
+        _pos_cfg["enabled"] = not _pos_cfg["enabled"]
+        return {"enabled": _pos_cfg["enabled"]}
 
     # ---------- ENC tile proxy (NOAA WMS → tile) ----------
 

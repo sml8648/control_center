@@ -84,6 +84,17 @@ class Ship(BaseModel):
     heading: float = 0.0  # degrees, 0=North
     color: str = "#58a6ff"
     platform_url: Optional[str] = None
+    # "manual" = no URL, "connected" = polling OK, "disconnected" = poll failed
+    connection_status: str = "manual"
+    last_position_at: Optional[datetime] = None
+
+
+class PositionPollConfig(BaseModel):
+    """Configuration for polling ship position from platform URLs."""
+
+    interval_sec: float = 5.0
+    timeout_sec: float = 3.0
+    enabled: bool = True
 
 
 class AddShipRequest(BaseModel):

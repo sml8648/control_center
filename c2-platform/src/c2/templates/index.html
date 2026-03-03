@@ -179,6 +179,16 @@
 
     /* Ship markers */
     .ship-marker-wrap { position: relative; }
+    .ship-conn-dot {
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      border: 1.5px solid #0d1117;
+      z-index: 10;
+    }
     .ship-label {
       position: absolute;
       top: 38px;
@@ -730,6 +740,7 @@
             <thead>
               <tr>
                 <th>선박</th>
+                <th>연결</th>
                 <th>위도</th>
                 <th>경도</th>
                 <th>방위</th>
@@ -742,7 +753,7 @@
               </tr>
             </thead>
             <tbody id="shipStatusBody">
-              <tr><td colspan="10" class="ss-empty">초기화 중…</td></tr>
+              <tr><td colspan="11" class="ss-empty">초기화 중…</td></tr>
             </tbody>
           </table>
         </div>
@@ -775,15 +786,15 @@
             <input type="text" id="asName" placeholder="예: VESSEL-03" required>
           </div>
           <div class="field">
-            <label for="asUrl">플랫폼 URL</label>
+            <label for="asUrl">플랫폼 URL <span style="font-weight:400;opacity:0.6">(IP 연결 시 위치 자동 갱신)</span></label>
             <input type="url" id="asUrl" placeholder="http://192.168.1.10:8080">
           </div>
           <div class="field">
-            <label for="asLat">위도</label>
+            <label for="asLat">위도 <span style="font-weight:400;opacity:0.6">(초기 위치)</span></label>
             <input type="number" id="asLat" placeholder="35.1000" step="0.0001" min="-90" max="90" required>
           </div>
           <div class="field">
-            <label for="asLon">경도</label>
+            <label for="asLon">경도 <span style="font-weight:400;opacity:0.6">(초기 위치)</span></label>
             <input type="number" id="asLon" placeholder="129.0500" step="0.0001" min="-180" max="180" required>
           </div>
           <div class="field">
@@ -1590,8 +1601,16 @@
           // 서버에서 받은 color로 동적으로 SHIP_COLORS 업데이트
           if (ship.color) SHIP_COLORS[ship.id] = ship.color;
           var color = SHIP_COLORS[ship.id] || '#fff';
+
+          // 연결 상태 dot 색상
+          var connStatus = ship.connection_status || 'manual';
+          var connColor  = connStatus === 'connected'     ? '#3fb950'
+                         : connStatus === 'disconnected'  ? '#f85149'
+                         : '#555e6b'; // manual
+
           var icon = L.divIcon({
             html: '<div class="ship-marker-wrap">' + shipSVG(ship.heading, color) +
+                  '<span class="ship-conn-dot" style="background:' + connColor + '"></span>' +
                   '<span class="ship-label" style="color:' + color + '">' + escapeHtml(ship.name) + '</span></div>',
             className: '',
             iconSize: [36, 36],
@@ -1599,8 +1618,9 @@
           });
 
           if (shipMarkers[ship.id]) {
-            // 애니메이션 중이거나 도착 위치 고정 중이면 서버 위치로 덮어쓰지 않음
-            if (!shipAnimations[ship.id] && !shipPositionOverride[ship.id]) {
+            // IP 연결 선박(connected)은 애니메이션 중에도 서버 위치로 갱신
+            var forceUpdate = (connStatus === 'connected');
+            if (forceUpdate || (!shipAnimations[ship.id] && !shipPositionOverride[ship.id])) {
               shipMarkers[ship.id].setLatLng([ship.lat, ship.lon]);
               shipMarkers[ship.id].setIcon(icon);
               shipMarkers[ship.id]._shipData = ship;
@@ -1633,16 +1653,17 @@
 
       var ids = Object.keys(shipMarkers);
       if (ids.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="ss-empty">등록된 선박이 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="ss-empty">등록된 선박이 없습니다.</td></tr>';
         return;
       }
 
       var rows = ids.map(function(shipId) {
         var m = shipMarkers[shipId];
         if (!m || !m._shipData) return '';
-        var ship     = m._shipData;
-        var color    = SHIP_COLORS[shipId] || '#fff';
-        var isMoving = !!shipAnimations[shipId];
+        var ship       = m._shipData;
+        var color      = SHIP_COLORS[shipId] || '#fff';
+        var isMoving   = !!shipAnimations[shipId];
+        var connStatus = ship.connection_status || 'manual';
 
         var queue  = shipWpQueues[shipId] || [];
         var curIdx = (shipWpCurIdx[shipId] != null) ? shipWpCurIdx[shipId] : -1;
@@ -1677,11 +1698,28 @@
           ? '<a class="ss-url-link" href="' + escapeHtml(ship.platform_url) + '" target="_blank" rel="noopener">' + escapeHtml(ship.platform_url) + '</a>'
           : '<span style="color:var(--text-muted)">—</span>';
 
+        // 연결 상태 뱃지
+        var connLabel, connStyle;
+        if (connStatus === 'connected') {
+          var ago = ship.last_position_at
+            ? Math.round((Date.now() - new Date(ship.last_position_at).getTime()) / 1000) + '초 전'
+            : '';
+          connLabel = '● 연결됨' + (ago ? ' <span style="font-size:0.68rem;opacity:0.7">' + ago + '</span>' : '');
+          connStyle = 'color:#3fb950;font-size:0.75rem;font-weight:600';
+        } else if (connStatus === 'disconnected') {
+          connLabel = '✕ 끊김';
+          connStyle = 'color:#f85149;font-size:0.75rem;font-weight:600';
+        } else {
+          connLabel = '— 수동';
+          connStyle = 'color:#8b949e;font-size:0.75rem';
+        }
+
         var isSelected = (selectedShipId === shipId);
         var rowStyle = isSelected ? 'background:rgba(88,166,255,0.06);' : '';
 
         return '<tr style="' + rowStyle + '">' +
           '<td><div class="ss-name"><span class="ss-dot" style="background:' + color + ';color:' + color + '"></span>' + escapeHtml(ship.name) + '</div></td>' +
+          '<td><span style="' + connStyle + '">' + connLabel + '</span></td>' +
           '<td><span class="ss-mono bright">' + toDMS(ship.lat, true)  + '</span></td>' +
           '<td><span class="ss-mono bright">' + toDMS(ship.lon, false) + '</span></td>' +
           '<td><span class="ss-mono bright">' + ship.heading.toFixed(0) + '°</span></td>' +
@@ -1694,7 +1732,7 @@
           '</tr>';
       }).join('');
 
-      tbody.innerHTML = rows || '<tr><td colspan="10" class="ss-empty">등록된 선박이 없습니다.</td></tr>';
+      tbody.innerHTML = rows || '<tr><td colspan="11" class="ss-empty">등록된 선박이 없습니다.</td></tr>';
     }
 
     function flyToShip(shipId) {
