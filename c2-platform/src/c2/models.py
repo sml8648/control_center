@@ -101,8 +101,8 @@ class AddShipRequest(BaseModel):
     """Request to add a new ship to the map."""
 
     name: str
-    lat: float
-    lon: float
+    lat: float = 0.0   # initial position — overridden by platform polling
+    lon: float = 0.0
     color: str = "#58a6ff"
     platform_url: Optional[str] = None
 
@@ -156,6 +156,19 @@ class ShipRoute(BaseModel):
     keep_in_areas: list[ZonePolygon]
     keep_out_areas: list[ZonePolygon]
     loaded_at: datetime
+    raw_xml: Optional[str] = None  # Original RTZ XML — used to forward to ship platform
+
+
+class RouteSendRecord(BaseModel):
+    """Record of a single RTZ route transmission to a ship platform."""
+
+    ship_id: str
+    ship_name: str
+    sent_at: datetime
+    target_url: str
+    status: str               # "ok" | "error"
+    status_code: Optional[int] = None
+    error: Optional[str] = None
 
 
 class HbtConfig(BaseModel):

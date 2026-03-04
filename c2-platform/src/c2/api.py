@@ -27,6 +27,7 @@ from .models import (
     MapPoint,
     PositionPollConfig,
     RouteWaypoint,
+    RouteSendRecord,
     SendCommandRequest,
     SendCommandResponse,
     SetWaypointRequest,
@@ -54,6 +55,8 @@ _ships: list[Ship] = [
 ]
 _ship_waypoints: dict[str, ShipWaypoint] = {}
 _ship_routes: dict[str, ShipRoute] = {}
+_route_send_log: list[RouteSendRecord] = []
+_ROUTE_SEND_LOG_LIMIT = 200
 
 # ---------- IEC 61162-1 HBT ----------
 # Runtime config stored as a mutable dict so it can be updated in-place
@@ -96,9 +99,11 @@ async def _position_poll_loop() -> None:
 
                     url = ship.platform_url.rstrip("/") + "/api/position"
                     try:
-                        r = await client.get(url)
+                        r = await client.get(url, headers={"x-app-lang": "en"})
                         if r.status_code == 200:
-                            data = r.json()
+                            body = r.json()
+                            # Support both flat {"lat":…} and wrapped {"data":{"lat":…}} responses
+                            data = body.get("data", body)
                             ship.lat = float(data["lat"])
                             ship.lon = float(data["lon"])
                             ship.heading = float(data.get("heading", ship.heading))
@@ -276,6 +281,7 @@ def parse_rtz(xml_str: str, ship_id: str) -> ShipRoute:
         keep_in_areas=keep_in_areas,
         keep_out_areas=keep_out_areas,
         loaded_at=datetime.now(timezone.utc),
+        raw_xml=xml_str,
     )
 
 
@@ -486,8 +492,10 @@ def create_app(config_path: Optional[Path] = None) -> FastAPI:
         return list(_ships)
 
     @app.post("/api/ships", response_model=Ship, status_code=201)
-    def add_ship(body: AddShipRequest):
+    async def add_ship(body: AddShipRequest):
         """Add a new ship to the map."""
+        import httpx
+
         ship_id = "ship-" + str(uuid4())[:8]
         ship = Ship(
             id=ship_id,
@@ -499,6 +507,24 @@ def create_app(config_path: Optional[Path] = None) -> FastAPI:
             platform_url=body.platform_url or None,
         )
         _ships.append(ship)
+
+        # Immediately fetch position from platform so the ship starts at correct location
+        if ship.platform_url:
+            try:
+                url = ship.platform_url.rstrip("/") + "/api/position"
+                async with httpx.AsyncClient(timeout=3.0) as client:
+                    r = await client.get(url, headers={"x-app-lang": "en"})
+                if r.status_code == 200:
+                    body_json = r.json()
+                    data = body_json.get("data", body_json)
+                    ship.lat = float(data["lat"])
+                    ship.lon = float(data["lon"])
+                    ship.heading = float(data.get("heading", ship.heading))
+                    ship.connection_status = "connected"
+                    ship.last_position_at = datetime.now(timezone.utc)
+            except Exception:
+                ship.connection_status = "disconnected"
+
         return ship
 
     @app.delete("/api/ships/{ship_id}")
@@ -542,7 +568,9 @@ def create_app(config_path: Optional[Path] = None) -> FastAPI:
 
     # ---------- Ship RTZ Route API ----------
 
-    @app.post("/api/ships/{ship_id}/route/rtz", response_model=ShipRoute)
+    @app.post("/api/ships/{ship_id}/route/rtz",
+              response_model=ShipRoute,
+              response_model_exclude={"raw_xml"})
     async def upload_ship_route_rtz(ship_id: str, request: Request):
         """Upload an RTZ XML file (raw body, Content-Type: application/xml) to define the ship's route."""
         ship = next((s for s in _ships if s.id == ship_id), None)
@@ -557,6 +585,67 @@ def create_app(config_path: Optional[Path] = None) -> FastAPI:
             raise HTTPException(status_code=422, detail=f"RTZ processing error: {exc}") from exc
         _ship_routes[ship_id] = route
         return route
+
+    @app.post("/api/ships/{ship_id}/route/send", response_model=RouteSendRecord)
+    async def send_route_to_ship(ship_id: str):
+        """Forward the loaded RTZ route to the ship's platform via HTTP POST.
+
+        The ship platform must expose:
+            POST {platform_url}/api/route
+            Content-Type: application/xml
+            Body: <RTZ XML>
+        """
+        import httpx
+
+        ship = next((s for s in _ships if s.id == ship_id), None)
+        if not ship:
+            raise HTTPException(status_code=404, detail="Ship not found")
+        if ship_id not in _ship_routes:
+            raise HTTPException(status_code=404, detail="No route loaded for this ship")
+        if not ship.platform_url:
+            raise HTTPException(status_code=400, detail="Ship has no platform_url configured")
+
+        route = _ship_routes[ship_id]
+        if not route.raw_xml:
+            raise HTTPException(status_code=400, detail="Raw RTZ XML not available")
+
+        target_url = ship.platform_url.rstrip("/") + "/api/route"
+        status = "error"
+        status_code: Optional[int] = None
+        error: Optional[str] = None
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.post(
+                    target_url,
+                    content=route.raw_xml.encode("utf-8"),
+                    headers={"Content-Type": "application/xml", "x-app-lang": "en"},
+                )
+            status_code = r.status_code
+            status = "ok" if r.status_code < 400 else "error"
+            if status == "error":
+                error = f"HTTP {r.status_code}: {r.text[:200]}"
+        except Exception as exc:
+            error = str(exc)
+
+        record = RouteSendRecord(
+            ship_id=ship_id,
+            ship_name=ship.name,
+            sent_at=datetime.now(timezone.utc),
+            target_url=target_url,
+            status=status,
+            status_code=status_code,
+            error=error,
+        )
+        _route_send_log.append(record)
+        while len(_route_send_log) > _ROUTE_SEND_LOG_LIMIT:
+            _route_send_log.pop(0)
+        return record
+
+    @app.get("/api/ships/route/send/log", response_model=list[RouteSendRecord])
+    def get_route_send_log(limit: int = 50):
+        """Return recent RTZ route transmission records (newest first)."""
+        return _route_send_log[-limit:][::-1]
 
     @app.get("/api/ships/{ship_id}/route", response_model=ShipRoute)
     def get_ship_route(ship_id: str):

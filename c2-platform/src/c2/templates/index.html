@@ -790,14 +790,6 @@
             <input type="url" id="asUrl" placeholder="http://192.168.1.10:8080">
           </div>
           <div class="field">
-            <label for="asLat">위도 <span style="font-weight:400;opacity:0.6">(초기 위치)</span></label>
-            <input type="number" id="asLat" placeholder="35.1000" step="0.0001" min="-90" max="90" required>
-          </div>
-          <div class="field">
-            <label for="asLon">경도 <span style="font-weight:400;opacity:0.6">(초기 위치)</span></label>
-            <input type="number" id="asLon" placeholder="129.0500" step="0.0001" min="-180" max="180" required>
-          </div>
-          <div class="field">
             <label>선박 색상</label>
             <div class="color-pick-row">
               <input type="color" id="asColor" value="#e8b343">
@@ -947,6 +939,7 @@
     var shipWpQueues         = {};  // ship_id -> [{lat, lon, label}, ...]
     var shipWpCurIdx         = {};  // ship_id -> int  (-1 = 없음, 0+ = 현재 목표 인덱스)
     var shipRouteData        = {};  // ship_id -> {name, wpCount, kiCount, koCount}
+    var shipRouteSendStatus  = {};  // ship_id -> {status:"ok"/"error", time: Date, error: str}
     var shipPositionOverride = {};  // ship_id -> bool  도착 후 서버 위치 덮어쓰기 방지
 
     var SHIP_COLORS = {};  // 동적으로 서버 ship.color 에서 채워짐
@@ -982,14 +975,34 @@
       var rtzSection = '';
       var rd = shipRouteData[ship.id];
       if (rd) {
+        var ss = shipRouteSendStatus[ship.id];
+        var sendStatusHtml = '';
+        if (ss) {
+          var ago = Math.round((Date.now() - ss.time) / 1000);
+          var agoStr = ago < 60 ? ago + '초 전' : Math.round(ago/60) + '분 전';
+          if (ss.status === 'ok') {
+            sendStatusHtml = '<span style="color:#3fb950;font-size:0.68rem">✓ 전송됨 ' + agoStr + '</span>';
+          } else {
+            sendStatusHtml = '<span style="color:#f85149;font-size:0.68rem" title="' + escapeHtml(ss.error||'') + '">✕ 전송 실패 ' + agoStr + '</span>';
+          }
+        }
         rtzSection = [
           '<div style="margin:0.3rem 0;padding:0.35rem 0.5rem;background:#161b22;border-radius:5px;',
           'border:1px solid #30363d;font-family:\'JetBrains Mono\',monospace;font-size:0.72rem;color:var(--text-muted)">',
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:0.4rem">',
+          '<span>',
           '<span style="color:#3fb950">●</span>&nbsp;',
           escapeHtml(rd.name) + '&nbsp;&nbsp;',
           'WP&nbsp;<strong style="color:var(--text)">' + rd.wpCount + '</strong>',
           (rd.kiCount ? '&nbsp;|&nbsp;KI&nbsp;<strong style="color:#3fb950">' + rd.kiCount + '</strong>' : ''),
           (rd.koCount ? '&nbsp;|&nbsp;KO&nbsp;<strong style="color:#f85149">' + rd.koCount + '</strong>' : ''),
+          '</span>',
+          '<button onclick="sendRouteToShip(\'' + ship.id + '\')" style="',
+          'background:none;border:1px solid #30363d;border-radius:4px;color:#58a6ff;',
+          'font-size:0.68rem;padding:0.1rem 0.45rem;cursor:pointer;white-space:nowrap">',
+          '📡 전송</button>',
+          '</div>',
+          (sendStatusHtml ? '<div style="margin-top:0.25rem">' + sendStatusHtml + '</div>' : ''),
           '</div>',
         ].join('');
       }
@@ -1095,6 +1108,8 @@
     }
 
     function startShipAnimation(shipId, targetLat, targetLon, onArrival) {
+      // [DISABLED] 선박 이동 애니메이션 임시 비활성화
+      return;
       // Cancel any running animation for this ship
       if (shipAnimations[shipId]) {
         clearInterval(shipAnimations[shipId]);
@@ -1248,6 +1263,34 @@
       input.click();
     }
     window.loadRtzForShip = loadRtzForShip;
+
+    async function sendRouteToShip(shipId) {
+      try {
+        showToast('RTZ 전송 중…', 'success');
+        var res = await fetch('/api/ships/' + shipId + '/route/send', { method: 'POST' });
+        var data = await res.json();
+        if (!res.ok) {
+          var msg = (data && data.detail) ? data.detail : 'HTTP ' + res.status;
+          shipRouteSendStatus[shipId] = { status: 'error', time: Date.now(), error: msg };
+          showToast('RTZ 전송 실패: ' + msg, 'error');
+        } else if (data.status === 'ok') {
+          shipRouteSendStatus[shipId] = { status: 'ok', time: Date.now() };
+          showToast(data.ship_name + ' RTZ 전송 성공 (' + data.target_url + ')', 'success');
+        } else {
+          var errMsg = data.error || ('HTTP ' + data.status_code);
+          shipRouteSendStatus[shipId] = { status: 'error', time: Date.now(), error: errMsg };
+          showToast('RTZ 전송 실패: ' + errMsg, 'error');
+        }
+        // 팝업 열려있으면 재빌드해서 상태 반영
+        var m = shipMarkers[shipId];
+        if (m && m.isPopupOpen()) {
+          m.setPopupContent(buildShipPopup(m._shipData));
+        }
+      } catch (e) {
+        showToast('RTZ 전송 오류: ' + e.message, 'error');
+      }
+    }
+    window.sendRouteToShip = sendRouteToShip;
 
     function drawRoute(shipId, route) {
       // Remove previous route layers for this ship
@@ -1883,12 +1926,9 @@
       form.addEventListener('submit', async function() {
         var name  = document.getElementById('asName').value.trim();
         var url   = document.getElementById('asUrl').value.trim();
-        var lat   = parseFloat(document.getElementById('asLat').value);
-        var lon   = parseFloat(document.getElementById('asLon').value);
         var color = document.getElementById('asColor').value;
 
         if (!name) { showToast('선박명을 입력하세요', 'error'); return; }
-        if (isNaN(lat) || isNaN(lon)) { showToast('위도/경도를 입력하세요', 'error'); return; }
 
         var btn = document.getElementById('addShipBtn');
         btn.disabled = true;
@@ -1900,8 +1940,6 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               name: name,
-              lat: lat,
-              lon: lon,
               color: color,
               platform_url: url || null,
             }),
@@ -1920,8 +1958,6 @@
           // 폼 초기화
           document.getElementById('asName').value = '';
           document.getElementById('asUrl').value  = '';
-          document.getElementById('asLat').value  = '';
-          document.getElementById('asLon').value  = '';
 
           // 즉시 지도 갱신
           if (typeof refreshShips === 'function') refreshShips();
